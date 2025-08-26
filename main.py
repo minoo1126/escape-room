@@ -79,7 +79,7 @@ class GameObject:
                     return "你使用了鑰匙，門已解鎖！"
                 return "門被鎖住了，好像需要鑰匙。"
             else:
-                if game.room == 1:
+                if game.current_room == 1:
                     game.enter_room2()
                     return "你打開門進入了下一間房間！"
                 else:
@@ -100,6 +100,11 @@ class GameObject:
                 game.add_to_inventory(Item("便條紙", "上面寫著 3-1-4。", icon_color=YELLOW))
                 self.visible = False
                 return "你撿起了便條紙。"
+        if self.name == "鑰匙":
+            if self.visible:
+                self.visible = False
+                game.add_to_inventory(Item("鑰匙", icon_color=YELLOW))
+                return "這把鑰匙是不是最後一道門的鎖"
         if self.name == "書櫃":
             return "一排舊書。其中一本書的書背特別厚…"
         if self.name == "盒子":
@@ -214,51 +219,74 @@ class CodePanel:
 # ----------------------
 class Game:
     def __init__(self):
+        self.current_room = 1
         self.inventory = Inventory(capacity=7)
         self.objects: list[GameObject] = []
         self.message = "醒來時，你身處陌生的房間。試著找線索逃出去。"
         self.held_item: Item | None = None
         self.code_panel: CodePanel | None = None
         self.win = False
-        self.room = 1
+        self.rooms = {
+            1: {"objects": None, "message": None},
+            2: {"objects": None, "message": None}
+        }
         self.setup_room1()
+        self.setup_room2()
+        self.switch_room(1)  # 初始進入房間 1
 
     # 第一房間
     def setup_room1(self):
         door_img = pygame.Surface((120,240))
         door_img.fill(BLUE)
         door = GameObject("門", door_img.get_rect(topleft=(WIDTH-160,120)), BLUE, (90,170,250), locked=True, image=door_img)
+
         drawer_img = pygame.Surface((160,100))
         drawer_img.fill(BROWN)
         drawer = GameObject("抽屜", drawer_img.get_rect(topleft=(180,300)), BROWN, (150,120,90), locked=True, code="314", image=drawer_img)
         drawer.contains.append(Item("鑰匙", "可以打開門的鑰匙", icon_color=YELLOW))
+
         bookshelf_img = pygame.Surface((220,160))
         bookshelf_img.fill((110,80,50))
         bookshelf = GameObject("書櫃", bookshelf_img.get_rect(topleft=(80,120)), (110,80,50), (140,100,70), image=bookshelf_img)
+
         note_img = pygame.Surface((80,40))
         note_img.fill(YELLOW)
         note = GameObject("便條紙", note_img.get_rect(topleft=(360,180)), YELLOW, (255,230,90), image=note_img)
-        self.objects = [door, drawer, bookshelf, note]
+        
+        self.rooms[1]["objects"] = [door, drawer, bookshelf, note]
+        self.rooms[1]["message"] = "醒來時，你身處陌生的房間。試著找線索逃出去。"
 
-    # 第二房間範例
+    # 第二房間
     def setup_room2(self):
-        self.room = 2
-        # 門（通往勝利）
-        door_img = pygame.Surface((120,240))
+        door_img = pygame.Surface((360,50))
         door_img.fill(BLUE)
-        door = GameObject("門", door_img.get_rect(topleft=(WIDTH-160,120)), BLUE, (90,170,250), locked=False, image=door_img)
-        # 盒子（含斧頭）
+        door = GameObject("門", door_img.get_rect(topleft = (350,10)), BLUE, (90,170,250), locked=False, image=door_img)
+
         box_img = pygame.Surface((160,100))
         box_img.fill(LIGHT_PURPLE)
         box = GameObject("盒子", box_img.get_rect(topleft=(300,300)), LIGHT_PURPLE, (123,104,238), locked=True, image=box_img)
         box.contains.append(Item("斧頭", "可以打破障礙物", icon_color=LIGHT_PURPLE))
-        self.objects = [door, box]
-        self.message = "你進入了第二間房間，似乎還有物品可以探索。"
 
+        key_img = pygame.Surface((40, 40))
+        key_img.fill(YELLOW)
+        axe = GameObject("鑰匙", key_img.get_rect(topleft = (20, 20)), YELLOW, (255,230,90), image = key_img)
+
+        self.rooms[2]["objects"] = [door, box, axe]
+        self.rooms[2]["message"] = "你進入了第二間房間，似乎還有物品可以探索。"
+    
     def enter_room2(self):
-        self.setup_room2()
+        self.switch_room(2)
         self.held_item = None
         self.code_panel = None
+
+    def switch_room(self, room_number: int):
+        if room_number in self.rooms:
+            self.current_room = room_number
+            self.objects = self.rooms[room_number]["objects"]
+            self.message = self.rooms[room_number]["message"]
+            self.code_panel = None
+            self.held_item = None
+
 
     # 物品欄操作
     def add_to_inventory(self, item: Item):
@@ -336,18 +364,12 @@ class Game:
         if key == pygame.K_ESCAPE:
             pygame.quit()
             sys.exit()
-        # 切換房間示例（按 R 鍵）
         if key == pygame.K_r:
-            if isinstance(self, Game):
-                # 進入第二房間
-                self.__class__ = Game2
-                self.__init__()
-                self.message = "你進入了第二個房間，房間裡有新的物件。"
-            elif isinstance(self, Game2):
-                # 回到第一房間
-                self.__class__ = Game
-                self.__init__()
-                self.message = "你回到了第一個房間。"
+            # 不重置，直接切換房間
+            if self.current_room == 1:
+                self.switch_room(2)
+            else:
+                self.switch_room(1)
     def update(self):
         pass
 
