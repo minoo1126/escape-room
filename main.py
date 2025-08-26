@@ -1,3 +1,4 @@
+
 # -*- coding: utf-8 -*-
 """
 完整 Pygame 密室逃脫 - 雙房間範例
@@ -341,27 +342,46 @@ class Game:
         if key == pygame.K_ESCAPE:
             pygame.quit()
             sys.exit()
+        # 切換房間示例（按 R 鍵）
+        if key == pygame.K_r:
+            if isinstance(self, Game):
+                # 進入第二房間
+                self.__class__ = Game2
+                self.__init__()
+                self.message = "你進入了第二個房間，房間裡有新的物件。"
+            elif isinstance(self, Game2):
+                # 回到第一房間
+                self.__class__ = Game
+                self.__init__()
+                self.message = "你回到了第一個房間。"
     def update(self):
         pass
 
-class Game2:
-    def __init__(self):
-        self.inventory = Inventory(capacity=7)
-        self.objects: list[GameObject] = []
-        self.message = "好不容易逃出來了，怎麼還有....."
-        self.held_item: Item | None = None
-        self.code_panel: CodePanel | None = None
-        self.win = False
-        self.setup_room()
-
+class Game2(Game):
     def setup_room(self):
-        door1_img = pygame.surface((240, 120))
-        door1_img.fill(BLUE)
-        door = GameObject("門", door1_img.get_rect(top = (HEIGHT + 50, 240)), BLUE, (90, 170, 250), locked = True, image = door1_img)
-        box_img = pygame.Surface((160, 100))
-        box_img.fill(LIGHT_PURPLE)
-        box = GameObject("盒子", box_img.get_rect(topleft = (300, 300)), LIGHT_PURPLE, (123, 104, 238), locked = True, image = box_img)
+        # 清空原本物件
+        self.objects = []
 
+        # 房間物件示例
+        door_img = pygame.Surface((120,240))
+        door_img.fill(BLUE)
+        door = GameObject("木門", door_img.get_rect(topleft=(WIDTH-160,120)), BLUE, (90,170,250), locked=True, image=door_img)
+
+        box_img = pygame.Surface((160,100))
+        box_img.fill(LIGHT_PURPLE)
+        box = GameObject("盒子", box_img.get_rect(topleft=(200,300)), LIGHT_PURPLE, (180,160,250), locked=True, image=box_img)
+
+        axe_img = pygame.Surface((60,40))
+        axe_img.fill(255, 0, 0)
+        axe = GameObject("斧頭", axe_img.get_rect(topleft=(500,350)), RED, (255,100,100), image=axe_img)
+
+        # 添加到物件列表
+        self.objects = [door, box, axe]
+
+        # 添加提示物件標示
+        box.desc = "盒子鎖住了，裡面可能有線索。"
+        door.desc = "這是出口，你需要找到方法開門。"
+        axe.desc = "看起來可以用來破壞門或障礙物。"
 
 # ----------------------
 # 主迴圈
