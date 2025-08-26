@@ -1,9 +1,3 @@
-
-# -*- coding: utf-8 -*-
-"""
-完整 Pygame 密室逃脫 - 雙房間範例
-"""
-
 import pygame
 import sys
 from dataclasses import dataclass, field
