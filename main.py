@@ -72,19 +72,26 @@ class GameObject:
     def on_click(self, game):
         if not self.visible:
             return ""
-        if self.name == "門":
+        if self.name == "門":  # 第一間房間
             if self.locked:
                 if game.held_item and game.held_item.name == "鑰匙":
                     self.locked = False
                     return "你使用了鑰匙，門已解鎖！"
                 return "門被鎖住了，好像需要鑰匙。"
             else:
-                if game.current_room == 1:
-                    game.enter_room2()
-                    return "你打開門進入了下一間房間！"
-                else:
-                    game.win = True
-                    return "你推開了門，成功逃出第二間房間！"
+                game.enter_room2()
+                return "你打開門進入了下一間房間！"
+
+        if self.name == "木門":  # 第二間房間
+            if self.locked:
+                if game.held_item and game.held_item.name == "斧頭":
+                    self.locked = False
+                    return "你用斧頭砍開了木門！"
+                return "木門緊閉著，似乎需要工具。"
+            else:
+                game.win = True
+                return "你推開了木門，成功逃出第二間房間！"
+
         if self.name == "抽屜":
             if self.locked:
                 game.open_code_panel(self)
@@ -100,16 +107,16 @@ class GameObject:
                 game.add_to_inventory(Item("便條紙", "上面寫著 3-1-4。", icon_color=YELLOW))
                 self.visible = False
                 return "你撿起了便條紙。"
-        if self.name == "鑰匙":
+        if self.name == "神秘鑰匙":
             if self.visible:
                 self.visible = False
-                game.add_to_inventory(Item("鑰匙", icon_color=YELLOW))
+                game.add_to_inventory(Item("神秘鑰匙", icon_color=YELLOW))
                 return "這把鑰匙是不是最後一道門的鎖"
         if self.name == "書櫃":
             return "一排舊書。其中一本書的書背特別厚…"
         if self.name == "盒子":
             if self.locked:
-                if game.held_item and game.held_item.name == "鑰匙":
+                if game.held_item and game.held_item.name == "神秘鑰匙":
                     self.locked = False
                     return "盒子打開了，裡面有一把斧頭！"
                 return "盒子鎖住了，裡面似乎有東西。"
@@ -220,6 +227,7 @@ class CodePanel:
 class Game:
     def __init__(self):
         self.current_room = 1
+        self.room_solve = False
         self.inventory = Inventory(capacity=7)
         self.objects: list[GameObject] = []
         self.message = "醒來時，你身處陌生的房間。試著找線索逃出去。"
@@ -260,7 +268,7 @@ class Game:
     def setup_room2(self):
         door_img = pygame.Surface((360,50))
         door_img.fill(BLUE)
-        door = GameObject("門", door_img.get_rect(topleft = (350,10)), BLUE, (90,170,250), locked=False, image=door_img)
+        door = GameObject("木門", door_img.get_rect(topleft = (350,10)), BLUE, (90,170,250), locked=True, image=door_img)
 
         box_img = pygame.Surface((160,100))
         box_img.fill(LIGHT_PURPLE)
@@ -269,7 +277,7 @@ class Game:
 
         key_img = pygame.Surface((40, 40))
         key_img.fill(YELLOW)
-        axe = GameObject("鑰匙", key_img.get_rect(topleft = (20, 20)), YELLOW, (255,230,90), image = key_img)
+        axe = GameObject("神秘鑰匙", key_img.get_rect(topleft = (20, 20)), YELLOW, (255,230,90), image = key_img)
 
         self.rooms[2]["objects"] = [door, box, axe]
         self.rooms[2]["message"] = "你進入了第二間房間，似乎還有物品可以探索。"
@@ -307,11 +315,17 @@ class Game:
         if item.name == "鑰匙" and obj.name == "門":
             if obj.locked:
                 obj.locked = False
+                self.room_solve = True
                 return "你用鑰匙把門解鎖了。"
             return "門已經是開鎖狀態。"
         if item.name == "便條紙":
             return "便條紙上寫著 3-1-4，也許是密碼。"
-        if item.name == "斧頭" and obj.name == "門":
+        if item.name == "神秘鑰匙" and obj.name == "盒子":
+            if obj.locked:
+                obj.locked = False
+                return "你用神秘鑰匙把盒子打開了"
+            return "裡面似乎有一把斧頭"
+        if item.name == "斧頭" and obj.name == "木門":
             obj.locked = False
             return "你用斧頭砍開了門！"
         return "這個物品不能用在這裡。"
@@ -367,7 +381,10 @@ class Game:
         if key == pygame.K_r:
             # 不重置，直接切換房間
             if self.current_room == 1:
-                self.switch_room(2)
+                if self.room_solve:
+                    self.switch_room(2)
+                else:
+                    return "們還鎖著，必須先解開謎題"
             else:
                 self.switch_room(1)
     def update(self):
