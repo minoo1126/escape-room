@@ -9,7 +9,7 @@ pygame.init()
 WIDTH, HEIGHT = 960, 540
 FPS = 60
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption("密室逃脫 - 雙房間範例")
+pygame.display.set_caption("密室逃脫")
 clock = pygame.time.Clock()
 
 # 顏色與字型
@@ -25,9 +25,7 @@ FONT = pygame.font.SysFont("Microsoft JhengHei", 22)
 SMALL = pygame.font.SysFont("Microsoft JhengHei", 18)
 BIG = pygame.font.SysFont("Microsoft JhengHei", 42)
 
-# ----------------------
 # 工具函式
-# ----------------------
 def draw_text(surf, text, pos, color=WHITE, font=FONT, center=False):
     img = font.render(text, True, color)
     rect = img.get_rect()
@@ -37,9 +35,7 @@ def draw_text(surf, text, pos, color=WHITE, font=FONT, center=False):
         rect.topleft = pos
     surf.blit(img, rect)
 
-# ----------------------
-# 物品與物件
-# ----------------------
+# 物品
 @dataclass
 class Item:
     name: str
@@ -128,9 +124,7 @@ class GameObject:
                 return "盒子是空的。"
         return ""
 
-# ----------------------
 # 物品欄 UI
-# ----------------------
 class Inventory:
     def __init__(self, capacity=6):
         self.capacity = capacity
@@ -170,9 +164,7 @@ class Inventory:
         self.items.append(item)
         return True
 
-# ----------------------
 # 密碼輸入面板
-# ----------------------
 class CodePanel:
     def __init__(self, target: GameObject, length=3):
         self.target = target
@@ -221,9 +213,7 @@ class CodePanel:
             game.message = "密碼錯誤。"
         game.close_code_panel()
 
-# ----------------------
-# 主遊戲
-# ----------------------
+# main
 class Game:
     def __init__(self):
         self.current_room = 1
@@ -240,9 +230,9 @@ class Game:
         }
         self.setup_room1()
         self.setup_room2()
-        self.switch_room(1)  # 初始進入房間 1
+        self.switch_room(1)  # 進入初始房間 1
 
-    # 第一房間
+    # 一房間
     def setup_room1(self):
         door_img = pygame.Surface((120,240))
         door_img.fill(BLUE)
@@ -264,7 +254,7 @@ class Game:
         self.rooms[1]["objects"] = [door, drawer, bookshelf, note]
         self.rooms[1]["message"] = "醒來時，你身處陌生的房間。試著找線索逃出去。"
 
-    # 第二房間
+    # 二房間
     def setup_room2(self):
         door_img = pygame.Surface((360,50))
         door_img.fill(BLUE)
@@ -303,7 +293,7 @@ class Game:
         else:
             self.message = "物品欄已滿。"
 
-    # CodePanel
+    # 密碼輸入
     def open_code_panel(self, target: GameObject):
         self.code_panel = CodePanel(target, length=3)
 
@@ -416,9 +406,7 @@ class Game2(Game):
         door.desc = "這是出口，你需要找到方法開門。"
         axe.desc = "看起來可以用來破壞門或障礙物。"
 
-# ----------------------
 # 主迴圈
-# ----------------------
 def main():
     game = Game()
     while True:
