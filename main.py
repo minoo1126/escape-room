@@ -1,5 +1,6 @@
 import pygame
 import sys
+from player import Player
 from dataclasses import dataclass, field
 
 # ----------------------
@@ -11,7 +12,7 @@ FPS = 60
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("密室逃脫")
 clock = pygame.time.Clock()
-
+player = Player(400, 300)
 # 顏色與字型
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
@@ -19,6 +20,7 @@ BLUE = (70, 140, 220)
 YELLOW = (240, 200, 60)
 BROWN = (120, 90, 60)
 LIGHT_PURPLE = (132, 112, 255)
+RED = (255, 0, 0)
 GRAY = (80, 80, 80)
 LIGHT_GRAY = (150, 150, 150)
 FONT = pygame.font.SysFont("Microsoft JhengHei", 22)
@@ -263,13 +265,13 @@ class Game:
         box_img = pygame.Surface((160,100))
         box_img.fill(LIGHT_PURPLE)
         box = GameObject("盒子", box_img.get_rect(topleft=(300,300)), LIGHT_PURPLE, (123,104,238), locked=True, image=box_img)
-        box.contains.append(Item("斧頭", "可以打破障礙物", icon_color=LIGHT_PURPLE))
+        box.contains.append(Item("斧頭", "可以打破障礙物", icon_color=RED))
 
         key_img = pygame.Surface((40, 40))
         key_img.fill(YELLOW)
-        axe = GameObject("神秘鑰匙", key_img.get_rect(topleft = (20, 20)), YELLOW, (255,230,90), image = key_img)
+        key = GameObject("神秘鑰匙", key_img.get_rect(topleft = (20, 20)), YELLOW, (255,230,90), image = key_img)
 
-        self.rooms[2]["objects"] = [door, box, axe]
+        self.rooms[2]["objects"] = [door, box, key]
         self.rooms[2]["message"] = "你進入了第二間房間，似乎還有物品可以探索。"
     
     def enter_room2(self):
@@ -374,7 +376,7 @@ class Game:
                 if self.room_solve:
                     self.switch_room(2)
                 else:
-                    return "們還鎖著，必須先解開謎題"
+                    self.message = "門還鎖著，必須先解開謎題"
             else:
                 self.switch_room(1)
     def update(self):
@@ -417,10 +419,15 @@ def main():
                 sys.exit()
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 game.handle_mouse_down(event.pos)
+                player.set_target(event.pos)
             elif event.type == pygame.KEYDOWN:
                 game.handle_key_down(event.key)
+        
+
         game.update()
         game.draw(screen)
+        player.draw(screen)
+        player.update()
         pygame.display.flip()
 
 if __name__ == "__main__":
