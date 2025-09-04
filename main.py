@@ -3,16 +3,14 @@ import sys
 from player import Player
 from dataclasses import dataclass, field
 
-# ----------------------
 # 初始化
-# ----------------------
 pygame.init()
 WIDTH, HEIGHT = 960, 540
 FPS = 60
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("密室逃脫")
 clock = pygame.time.Clock()
-player = Player(400, 300)
+player = Player(600, 350, True)
 # 顏色與字型
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
@@ -50,6 +48,7 @@ class GameObject:
     rect: pygame.Rect
     color: tuple
     hover_color: tuple
+    border_radius = 10
     visible: bool = True
     locked: bool = False
     code: str = ""
@@ -63,8 +62,8 @@ class GameObject:
             surf.blit(self.image, self.rect.topleft)
         else:
             c = self.hover_color if hover else self.color
-            pygame.draw.rect(surf, c, self.rect, border_radius=8)
-            pygame.draw.rect(surf, BLACK, self.rect, 2, border_radius=8)
+            pygame.draw.rect(surf, c, self.rect, border_radius= 10)
+            pygame.draw.rect(surf, BLACK, self.rect, 2, border_radius=10)
             draw_text(surf, self.name, (self.rect.x + 8, self.rect.y + 6), BLACK, SMALL)
 
     def on_click(self, game):
@@ -93,6 +92,7 @@ class GameObject:
         if self.name == "抽屜":
             if self.locked:
                 game.open_code_panel(self)
+                player.visible = False
                 return "抽屜有三位數密碼鎖。"
             else:
                 if self.contains:
@@ -103,6 +103,8 @@ class GameObject:
         if self.name == "便條紙":
             if self.visible:
                 game.add_to_inventory(Item("便條紙", "上面寫著 3-1-4。", icon_color=YELLOW))
+                game.show_note_image = True
+                player.visible = False
                 self.visible = False
                 return "你撿起了便條紙。"
         if self.name == "神秘鑰匙":
@@ -149,7 +151,9 @@ class Inventory:
             pygame.draw.rect(surf, (10,10,10), r, 2, border_radius=10)
             if i < len(self.items):
                 item = self.items[i]
+                #inflate用來放大或縮小矩形的尺寸
                 pygame.draw.rect(surf, item.icon_color, r.inflate(-20,-24), border_radius=8)
+                #讓文字靠又且靠底部
                 draw_text(surf, item.name, (r.x+6, r.bottom-24), BLACK, SMALL)
         if held_item:
             draw_text(surf, f"手上物件：{held_item.name}", (20, HEIGHT-86), WHITE)
@@ -195,17 +199,17 @@ class CodePanel:
     def handle_key(self, game, key):
         if key == pygame.K_ESCAPE:
             game.close_code_panel()
+            player.visible = True
             return
         if key == pygame.K_BACKSPACE:
             self.buffer = self.buffer[:-1]
             return
         if key == pygame.K_RETURN:
             self.submit(game)
+            player.visible = True
             return
         if pygame.K_0 <= key <= pygame.K_9 and len(self.buffer)<self.length:
             self.buffer += chr(key)
-        if pygame.K_KP0 <= key <= pygame.K_KP9 and len(self.buffer)<self.length:
-            self.buffer += str(key - pygame.K_KP0)
 
     def submit(self, game):
         if self.buffer == self.target.code:
@@ -215,10 +219,18 @@ class CodePanel:
             game.message = "密碼錯誤。"
         game.close_code_panel()
 
+
+
 # main
 class Game:
     def __init__(self):
+        self.eye_phase = 0
+        self.eye_progress = 0
+        self.eye_done = False
         self.current_room = 1
+        self.show_note_image = False
+        raw_note = pygame.image.load("assets/Note.png").convert_alpha() 
+        self.note_image = pygame.transform.smoothscale(raw_note, (400, 300))
         self.room_solve = False
         self.inventory = Inventory(capacity=7)
         self.objects: list[GameObject] = []
@@ -233,13 +245,15 @@ class Game:
         self.setup_room1()
         self.setup_room2()
         self.switch_room(1)  # 進入初始房間 1
+        self.eye_opening = True
+        self.eye_alpha = 255
 
     # 一房間
     def setup_room1(self):
         door_img = pygame.Surface((120,240))
         door_img.fill(BLUE)
         door = GameObject("門", door_img.get_rect(topleft=(WIDTH-160,120)), BLUE, (90,170,250), locked=True, image=door_img)
-
+    
         drawer_img = pygame.Surface((160,100))
         drawer_img.fill(BROWN)
         drawer = GameObject("抽屜", drawer_img.get_rect(topleft=(180,300)), BROWN, (150,120,90), locked=True, code="314", image=drawer_img)
@@ -250,12 +264,16 @@ class Game:
         bookshelf = GameObject("書櫃", bookshelf_img.get_rect(topleft=(80,120)), (110,80,50), (140,100,70), image=bookshelf_img)
 
         note_img = pygame.Surface((80,40))
+        
         note_img.fill(YELLOW)
         note = GameObject("便條紙", note_img.get_rect(topleft=(360,180)), YELLOW, (255,230,90), image=note_img)
         
+        inventory_rect = pygame.Rect(0, HEIGHT-159, WIDTH, 159) 
+
         self.rooms[1]["objects"] = [door, drawer, bookshelf, note]
         self.rooms[1]["message"] = "醒來時，你身處陌生的房間。試著找線索逃出去。"
-
+        self.rooms[1]["obstacles"] = [door.rect, bookshelf.rect, drawer.rect] + [inventory_rect]
+        
     # 二房間
     def setup_room2(self):
         door_img = pygame.Surface((360,50))
@@ -271,22 +289,27 @@ class Game:
         key_img.fill(YELLOW)
         key = GameObject("神秘鑰匙", key_img.get_rect(topleft = (20, 20)), YELLOW, (255,230,90), image = key_img)
 
+        inventory_rect = pygame.Rect(0, HEIGHT-159, WIDTH, 159) 
+
         self.rooms[2]["objects"] = [door, box, key]
         self.rooms[2]["message"] = "你進入了第二間房間，似乎還有物品可以探索。"
-    
+        self.rooms[2]["obstacles"] = [door.rect, box.rect] + [inventory_rect]
+        
     def enter_room2(self):
         self.switch_room(2)
         self.held_item = None
         self.code_panel = None
 
     def switch_room(self, room_number: int):
+        global obstacles
         if room_number in self.rooms:
             self.current_room = room_number
             self.objects = self.rooms[room_number]["objects"]
             self.message = self.rooms[room_number]["message"]
+            obstacles = self.rooms[room_number]["obstacles"]
             self.code_panel = None
             self.held_item = None
-
+            
 
     # 物品欄操作
     def add_to_inventory(self, item: Item):
@@ -326,22 +349,72 @@ class Game:
     def draw(self, surf):
         surf.fill((35,38,48))
         pygame.draw.rect(surf, (60,65,80), (0,0,WIDTH, HEIGHT-120))
+
+        if not self.eye_done:
+            self.draw_eye_animation(surf)
+            return
         mx,my = pygame.mouse.get_pos()
         for obj in self.objects:
             hover = obj.rect.collidepoint((mx,my))
             obj.draw(surf, hover=hover)
+            # 顯示物件名稱
+            draw_text(surf, obj.name, (obj.rect.x + 8, obj.rect.y + 6), WHITE, SMALL)
         pygame.draw.rect(surf, (25,26,34), (0, HEIGHT-160, WIDTH,40))
         pygame.draw.line(surf, (55,58,70), (0, HEIGHT-160), (WIDTH, HEIGHT-160), 2)
         draw_text(surf, self.message, (16, HEIGHT-148), WHITE)
         self.inventory.draw(surf, self.held_item)
         if self.code_panel:
             self.code_panel.draw(surf)
+        if self.show_note_image:
+            overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+            overlay.fill((0, 0, 0, 160))
+            surf.blit(overlay, (0, 0))
+
+            img = self.note_image.get_rect(center = (WIDTH // 2 - 10, HEIGHT // 2 - 10))
+            surf.blit(self.note_image, img)
+            draw_text(surf, "按 ESC 關閉", (WIDTH//2, HEIGHT//2 + img.height//2 + 20), WHITE, FONT, center=True)
         if self.win:
             overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
             overlay.fill((0,0,0,160))
             surf.blit(overlay, (0,0))
             draw_text(surf, "你逃出了房間！", (WIDTH//2, HEIGHT//2-20), WHITE, BIG, center=True)
             draw_text(surf, "恭喜通關！按 ESC 結束", (WIDTH//2, HEIGHT//2+30), WHITE, FONT, center=True)
+    
+    def draw_eye_animation(self, surf):
+        if self.eye_done:
+            return
+        
+        if self.eye_phase == 0 and self.eye_progress == 0:
+            player.visible = False
+        
+        mask = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+        mask.fill((0, 0, 0, 255))
+
+        max_h = HEIGHT * 0.6
+        min_h = HEIGHT * 0.1
+        w = WIDTH * 0.9
+
+        if self.eye_phase == 0:
+            h = min_h + (max_h - min_h) * self.eye_progress
+        elif self.eye_phase == 1:
+            h = max_h - (max_h - min_h) * self.eye_progress
+        else:
+            h = min_h + (max_h - min_h) * self.eye_progress
+
+        ellipse_rect = pygame.Rect(0, 0, w, h)
+        ellipse_rect.center = (WIDTH // 2, HEIGHT // 2)
+        pygame.draw.ellipse(mask, (255, 255, 255), ellipse_rect)
+        mask.set_colorkey((255, 255, 255))
+        surf.blit(mask, (0, 0))
+
+        self.eye_progress += 0.02
+        if self.eye_progress >= 1:
+            self.eye_progress = 0
+            self.eye_phase += 1
+            if self.eye_phase > 2:
+                self.eye_done = True
+                player.visible = True
+
 
     # 滑鼠操作
     def handle_mouse_down(self, pos):
@@ -364,6 +437,11 @@ class Game:
         self.held_item = None
 
     def handle_key_down(self, key):
+        if self.show_note_image:
+            if key == pygame.K_ESCAPE:
+                self.show_note_image = False
+                player.visible = True
+            return
         if self.code_panel:
             self.code_panel.handle_key(self, key)
             return
@@ -422,12 +500,12 @@ def main():
                 player.set_target(event.pos)
             elif event.type == pygame.KEYDOWN:
                 game.handle_key_down(event.key)
-        
 
         game.update()
         game.draw(screen)
+        game.draw_eye_animation(screen)
         player.draw(screen)
-        player.update()
+        player.update(obstacles)
         pygame.display.flip()
 
 if __name__ == "__main__":
