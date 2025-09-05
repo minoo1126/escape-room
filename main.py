@@ -100,6 +100,11 @@ class GameObject:
                     game.add_to_inventory(item)
                     return f"你從抽屜拿到『{item.name}』。"
                 return "抽屜是空的。"
+        if self.name == "放大鏡":
+            if self.visible:
+                game.add_to_inventory(Item("放大鏡", "這個是甚麼東西", icon_color = BLUE))
+                self.visible = False
+                return "你撿起了放大鏡"
         if self.name == "便條紙":
             if self.visible:
                 game.add_to_inventory(Item("便條紙", "上面寫著 3-1-4。", icon_color=YELLOW))
@@ -165,10 +170,18 @@ class Inventory:
         return None
 
     def add(self, item: Item) -> bool:
+        if item not in self.items:
+            self.items.append(item)
         if len(self.items) >= self.capacity:
             return False
-        self.items.append(item)
         return True
+    
+    def remove(self, item: Item) -> bool:
+        if item in self.items:
+            self.items.remove(item)
+
+    def has(self, item):
+        return item in self.items
 
 # 密碼輸入面板
 class CodePanel:
@@ -247,6 +260,29 @@ class Game:
         self.switch_room(1)  # 進入初始房間 1
         self.eye_opening = True
         self.eye_alpha = 255
+        self.combinations = {
+            ("note", "key"): "decoded_note",
+            ("key_part1", "key_part2"): "master_key"
+        }
+    
+    def try_combine(self, item1, item2):
+        pair = tuple(sorted([item1, item2]))  # 排序避免順序不同
+        if pair in self.combinations:
+            new_item_name = self.combinations[pair]
+
+            # 移除原本的物品
+            self.inventory.remove(item1)
+            self.inventory.remove(item2)
+
+            # 新增新物品
+            new_item = Item(new_item_name, icon_color=(200, 200, 0))  # 你可以改顏色或加圖片
+            self.inventory.add(new_item)
+
+            self.message = f"你組合了 {item1} 和 {item2}，得到 {new_item_name}！"
+            return True
+        return False
+
+
 
     # 一房間
     def setup_room1(self):
@@ -263,14 +299,17 @@ class Game:
         bookshelf_img.fill((110,80,50))
         bookshelf = GameObject("書櫃", bookshelf_img.get_rect(topleft=(80,120)), (110,80,50), (140,100,70), image=bookshelf_img)
 
+        magnifier_img = pygame.Surface((160, 20))
+        magnifier_img.fill(BLUE)
+        magnifier = GameObject("放大鏡", magnifier_img.get_rect(topleft = (160, 30)), BLUE, (0, 255, 0), image = magnifier_img)
+
         note_img = pygame.Surface((80,40))
-        
         note_img.fill(YELLOW)
         note = GameObject("便條紙", note_img.get_rect(topleft=(360,180)), YELLOW, (255,230,90), image=note_img)
         
         inventory_rect = pygame.Rect(0, HEIGHT-159, WIDTH, 159) 
 
-        self.rooms[1]["objects"] = [door, drawer, bookshelf, note]
+        self.rooms[1]["objects"] = [magnifier, door, drawer, bookshelf, note]
         self.rooms[1]["message"] = "醒來時，你身處陌生的房間。試著找線索逃出去。"
         self.rooms[1]["obstacles"] = [door.rect, bookshelf.rect, drawer.rect] + [inventory_rect]
         
@@ -422,8 +461,15 @@ class Game:
             return
         item = self.inventory.handle_click(pos)
         if item:
-            self.held_item = item
-            self.message = f"手上物件：{item.name}"
+            if self.held_item:
+                if self.try_combine(self.held_item.name, item.name):
+                    self.held_item = None
+                else:
+                    self.message = f"無法組合 {self.held_item.name}和{item.name}"
+                    self.held_item = None
+            else:
+                self.held_item = item
+                self.message = f"手上物件：{item.name}"
             return
         for obj in self.objects:
             if obj.visible and obj.rect.collidepoint(pos):
