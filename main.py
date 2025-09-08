@@ -261,26 +261,30 @@ class Game:
         self.eye_opening = True
         self.eye_alpha = 255
         self.combinations = {
-            ("note", "key"): "decoded_note",
-            ("key_part1", "key_part2"): "master_key"
+            tuple(sorted(["便條紙", "放大鏡"])): "解碼便條紙",
+            tuple(sorted(["key_part1", "key_part2"])): "完整鑰匙"
         }
     
-    def try_combine(self, item1, item2):
-        pair = tuple(sorted([item1, item2]))  # 排序避免順序不同
+    def try_combine(self, item1_name, item2_name):
+        pair = tuple(sorted([item1_name, item2_name]))
         if pair in self.combinations:
             new_item_name = self.combinations[pair]
 
-            # 移除原本的物品
-            self.inventory.remove(item1)
-            self.inventory.remove(item2)
+        # 移除原本物品
+            for item in self.inventory.items[:]:
+                if item.name in pair:
+                    self.inventory.remove(item)
 
-            # 新增新物品
-            new_item = Item(new_item_name, icon_color=(200, 200, 0))  # 你可以改顏色或加圖片
+        # 新增新物品
+            new_item = Item(new_item_name, icon_color=(200, 200, 0))
             self.inventory.add(new_item)
 
-            self.message = f"你組合了 {item1} 和 {item2}，得到 {new_item_name}！"
+            self.message = f"你組合了 {item1_name} 和 {item2_name}，得到 {new_item_name}！"
             return True
-        return False
+        else:
+            self.message = f"{item1_name} 和 {item2_name} 無法組合。"
+            return False
+
 
 
 
