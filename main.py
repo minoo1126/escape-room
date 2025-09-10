@@ -257,7 +257,7 @@ class Game:
         }
         self.setup_room1()
         self.setup_room2()
-        self.switch_room(1)  # 進入初始房間 1
+        self.switch_room(1)
         self.eye_opening = True
         self.eye_alpha = 255
         self.combinations = {
@@ -284,9 +284,6 @@ class Game:
         else:
             self.message = f"{item1_name} 和 {item2_name} 無法組合。"
             return False
-
-
-
 
     # 一房間
     def setup_room1(self):
@@ -400,7 +397,6 @@ class Game:
         for obj in self.objects:
             hover = obj.rect.collidepoint((mx,my))
             obj.draw(surf, hover=hover)
-            # 顯示物件名稱
             draw_text(surf, obj.name, (obj.rect.x + 8, obj.rect.y + 6), WHITE, SMALL)
         pygame.draw.rect(surf, (25,26,34), (0, HEIGHT-160, WIDTH,40))
         pygame.draw.line(surf, (55,58,70), (0, HEIGHT-160), (WIDTH, HEIGHT-160), 2)
@@ -429,7 +425,7 @@ class Game:
         
         if self.eye_phase == 0 and self.eye_progress == 0:
             player.visible = False
-        
+        clock.tick(52)
         mask = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
         mask.fill((0, 0, 0, 255))
 
