@@ -230,6 +230,7 @@ class CodePanel:
             game.message = "密碼正確！抽屜解鎖了。"
         else:
             game.message = "密碼錯誤。"
+            game.trigger_shake(frames = 15, intensity = 8)
         game.close_code_panel()
 
 
@@ -237,6 +238,10 @@ class CodePanel:
 # main
 class Game:
     def __init__(self):
+        self.dark_room = True
+        self.light_radius = 150
+        self.shake_frames = 0
+        self.shake_intensity = 5
         self.messages_to_type = [
             "頭好痛。。。。這裡是哪裡。。。。",
             "這裡怎麼特別的簡陋阿。。。。怪了。。。。。",
@@ -274,6 +279,19 @@ class Game:
             tuple(sorted(["便條紙", "放大鏡"])): "解碼便條紙",
             tuple(sorted(["key_part1", "key_part2"])): "完整鑰匙"
         }
+
+    def trigger_shake(self, frames = 10, intensity = 5):
+        self.shake_frames = frames
+        self.shake_intensity = intensity
+
+    def get_shake_offset(self):
+        if self.shake_frames > 0:
+            import random
+            offset = (random.randint(-self.shake_intensity, self.shake_intensity),
+                      random.randint(-self.shake_intensity, self.shake_intensity))
+            self.shake_frames -= 1
+            return offset
+        return (0, 0)
 
     def try_combine(self, item1_name, item2_name):
         pair = tuple(sorted([item1_name, item2_name]))
@@ -423,6 +441,19 @@ class Game:
             surf.blit(overlay, bg_rect.topleft)
 
             surf.blit(text_surf, text_rect)
+
+        offset = self.get_shake_offset()
+        screen.blit(surf, offset)
+        if self.dark_room:
+            mask = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+            mask.fill((0,0,0,200))
+            # 光圈中心使用 player.x, player.y
+            pygame.draw.circle(mask, (0,0,0,0), (int(player.x), int(player.y)), self.light_radius)
+            screen.blit(mask, (0,0))
+        
+        player.draw(screen)
+
+
 
         pygame.draw.rect(surf, (25,26,34), (0, HEIGHT-160, WIDTH,40))
         pygame.draw.line(surf, (55,58,70), (0, HEIGHT-160), (WIDTH, HEIGHT-160), 2)
@@ -599,11 +630,11 @@ def main():
             elif event.type == pygame.KEYDOWN:
                 game.handle_key_down(event.key)
 
-        game.update()
-        game.draw(screen)
+        player.update(obstacles)  
+        game.update()                 
+        game.draw(screen)        
         game.draw_eye_animation(screen)
-        player.draw(screen)
-        player.update(obstacles)
+        player.draw(screen)    
         pygame.display.flip()
 
 if __name__ == "__main__":
