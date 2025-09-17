@@ -237,7 +237,18 @@ class CodePanel:
 # main
 class Game:
     def __init__(self):
+        self.messages_to_type = [
+            "頭好痛。。。。這裡是哪裡。。。。",
+            "這裡怎麼特別的簡陋阿。。。。怪了。。。。。",
+        ]
+        self.main_message = "醒來時，你身處陌生的房間。試著找線索逃出去。"
+        self.current_message_index = 0
+        self.typed_message = ""
+        self.message_stage = "intro"
+        self.type_speed = 2
+        self.type_index = 0
         self.eye_phase = 0
+        self.message_done = False
         self.eye_progress = 0
         self.eye_done = False
         self.current_room = 1
@@ -247,7 +258,6 @@ class Game:
         self.room_solve = False
         self.inventory = Inventory(capacity=7)
         self.objects: list[GameObject] = []
-        self.message = "醒來時，你身處陌生的房間。試著找線索逃出去。"
         self.held_item: Item | None = None
         self.code_panel: CodePanel | None = None
         self.win = False
@@ -264,7 +274,7 @@ class Game:
             tuple(sorted(["便條紙", "放大鏡"])): "解碼便條紙",
             tuple(sorted(["key_part1", "key_part2"])): "完整鑰匙"
         }
-    
+
     def try_combine(self, item1_name, item2_name):
         pair = tuple(sorted([item1_name, item2_name]))
         if pair in self.combinations:
@@ -394,14 +404,33 @@ class Game:
             self.draw_eye_animation(surf)
             return
         mx,my = pygame.mouse.get_pos()
+        hovered_name = None
+        hovered_rect = None
         for obj in self.objects:
             hover = obj.rect.collidepoint((mx,my))
             obj.draw(surf, hover=hover)
-            draw_text(surf, obj.name, (obj.rect.x + 8, obj.rect.y + 6), WHITE, SMALL)
+            if hover:
+                hovered_name = obj.name
+                hovered_rect = obj.rect
+        
+        if hovered_name and hovered_rect:
+            text_surf = FONT.render(hovered_name, True, WHITE)
+            text_rect = text_surf.get_rect(center=(hovered_rect.centerx, hovered_rect.top - 15))
+
+            bg_rect = text_rect.inflate(10, 6)
+            overlay = pygame.Surface(bg_rect.size, pygame.SRCALPHA)
+            overlay.fill((0, 0, 0, 100))
+            surf.blit(overlay, bg_rect.topleft)
+
+            surf.blit(text_surf, text_rect)
+
         pygame.draw.rect(surf, (25,26,34), (0, HEIGHT-160, WIDTH,40))
         pygame.draw.line(surf, (55,58,70), (0, HEIGHT-160), (WIDTH, HEIGHT-160), 2)
-        draw_text(surf, self.message, (16, HEIGHT-148), WHITE)
         self.inventory.draw(surf, self.held_item)
+        if self.message_stage in ("main", "intro"):
+            draw_text(surf, self.typed_message, (16, HEIGHT - 148), WHITE)
+        elif self.message_stage == "done":
+            draw_text(surf, self.message, (16, HEIGHT - 149), WHITE)
         if self.code_panel:
             self.code_panel.draw(surf)
         if self.show_note_image:
@@ -422,10 +451,10 @@ class Game:
     def draw_eye_animation(self, surf):
         if self.eye_done:
             return
-        
+
         if self.eye_phase == 0 and self.eye_progress == 0:
             player.visible = False
-        clock.tick(52)
+        clock.tick(54)
         mask = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
         mask.fill((0, 0, 0, 255))
 
@@ -439,11 +468,13 @@ class Game:
             h = max_h - (max_h - min_h) * self.eye_progress
         else:
             h = min_h + (max_h - min_h) * self.eye_progress
-
+        
+        
         ellipse_rect = pygame.Rect(0, 0, w, h)
         ellipse_rect.center = (WIDTH // 2, HEIGHT // 2)
         pygame.draw.ellipse(mask, (255, 255, 255), ellipse_rect)
         mask.set_colorkey((255, 255, 255))
+        draw_text(surf, self.typed_message, (WIDTH // 2, HEIGHT - 80), WIDTH, FONT, center = True)
         surf.blit(mask, (0, 0))
 
         self.eye_progress += 0.02
@@ -453,6 +484,8 @@ class Game:
             if self.eye_phase > 2:
                 self.eye_done = True
                 player.visible = True
+        draw_text(surf, self.typed_message, (WIDTH // 2, HEIGHT - 80), WHITE, FONT, center=True)
+
 
 
     # 滑鼠操作
@@ -504,7 +537,26 @@ class Game:
             else:
                 self.switch_room(1)
     def update(self):
-        pass
+        if not self.eye_done:
+            if self.message_stage == "intro":
+                current_text = self.messages_to_type[self.type_index] if self.type_index < len(self.messages_to_type) else ""
+                if self.type_index < len(self.messages_to_type):
+                    if len(self.typed_message) < len(current_text):
+                        if pygame.time.get_ticks() % self.type_speed == 0:
+                            self.typed_message += current_text[len(self.typed_message)]
+                    else:
+                        self.type_index += 1
+                        self.typed_message = ""
+                else:
+                    self.message_stage = "main"
+                    self.typed_message = ""
+                    self.type_index = 0
+            return
+        if self.message_stage == "main":
+            if len(self.typed_message) < len(self.main_message):
+                self.typed_message += self.main_message[len(self.typed_message)]
+        else:
+            self.message_stage = "done"
 
 class Game2(Game):
     def setup_room(self):
